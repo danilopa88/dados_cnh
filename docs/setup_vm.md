@@ -174,30 +174,37 @@ SELECT * FROM iceberg.default.verify_install;
 
 ## 📘 Explicação Técnica (O que cada parte faz)
 
-Se você é novo nessa stack, aqui está o que acontece em cada trecho do script de criação:
-
 ### 1. Preparação de Canteiro de Obras (`mkdir -p` e `cd ~`)
 *   **`cd ~`**: Garante que o script comece na sua pasta pessoal (`/home/cnh_server`). Isso evita a criação de pastas aninhadas (uma pasta dentro da outra por erro de localização).
 *   **`mkdir -p`**: Cria a estrutura exata de diretórios necessária para o Docker. O parâmetro `-p` garante que as pastas "pai" sejam criadas automaticamente e evita erros caso elas já existam.
 
-### 2. Conector Iceberg Nativo (`iceberg.properties`)
-Este arquivo é o "manual de instruções" do Trino para o Lakehouse. Atualizamos para o modo nativo do Nessie:
-*   **Catalog Type Nessie:** Em vez de usar um protocolo genérico (REST), usamos o suporte nativo do Trino para o Nessie, o que garante maior estabilidade e performance.
-*   **Nessie URI (v1):** Indica onde o servidor Nessie está rodando. Usamos a API v1 que é a padrão para o conector nativo.
-*   **S3 Region:** Adicionamos `us-east-1` pois as versões modernas do Trino (444+) exigem uma região definida, mesmo para o MinIO local.
+### 1. Conector Iceberg Nativo (`iceberg.properties`)
+Este arquivo é o cérebro que ensina o Trino a falar com o seu Lakehouse:
+*   **`connector.name=iceberg`**: Define que este catálogo usará o motor do Apache Iceberg.
+*   **`iceberg.catalog.type=nessie`**: Escolhe o Nessie como o "gerente" (catálogo) das tabelas.
+*   **`iceberg.nessie-catalog.uri=...`**: O endereço onde o Nessie está ouvindo.
+*   **`iceberg.nessie-catalog.default-warehouse-dir=s3://warehouse`**: Onde, dentro do MinIO, os dados "vivos" serão salvos.
+*   **`fs.native-s3.enabled=true`**: Ativa o motor de alta performance do Trino para falar com o S3/MinIO.
+*   **`s3.endpoint=http://minio:9000`**: O endereço do nosso servidor de arquivos.
+*   **`s3.path-style-access=true`**: Essencial para o MinIO. Diz ao Trino para usar `minio/bucket` em vez de `bucket.minio`.
+*   **`s3.region=us-east-1`**: Define uma região fictícia (exigida por versões modernas do Trino).
 
-### 3. Automação do Storage (`entrypoint.sh`)
-Como o MinIO sobe vazio, este script automatiza duas tarefas cruciais:
-*   Cria o bucket (pasta) chamado `warehouse` (onde os dados reais das tabelas serão salvos).
-*   Define as permissões para que os serviços possam escrever e ler dados sem erros de acesso.
+### 2. Automação do Storage (`entrypoint.sh`)
+O "entrypoint" é o primeiro comando que o container `minio-init` roda ao nascer:
+*   **`mc alias set local...`**: Cria uma conexão salva chamada `local` para o nosso servidor MinIO. É como salvar uma senha no navegador.
+*   **`mc mb local/warehouse`**: Comando "Make Bucket". Cria a pasta raiz física onde os dados estarão.
+*   **`mc anonymous set public...`**: Define que qualquer um pode ler os dados nesse bucket, facilitando testes de BI e ingestão.
 
-### 4. Orquestração Avançada (`docker-compose.yml`)
-Orquestra os 4 serviços para trabalharem juntos com sincronia:
-*   **MinIO:** Servidor de armazenamento de objetos (nosso "S3" local).
-*   **Nessie:** Catálogo que permite o controle de versão dos dados (como se fosse um Git para tabelas).
-*   **Trino:** Engine SQL que processa as consultas de forma distribuída.
-*   **Depends_on:** Garante a ordem correta de inicialização. O Trino agora aguarda o MinIO e o Nessie estarem online antes de carregar os catálogos, evitando que o Trino "crasha" no boot.
-*   **Minio-init:** Um container temporário de "uso único" que executa as configurações iniciais do MinIO e encerra em seguida.
+### 3. Orquestração Avançada (`docker-compose.yml`)
+O Docker Compose é o "maestro" que coordena os 4 serviços:
+
+#### Configurações de "Saúde" (Healthchecks)
+*   **`test: ["CMD", "curl", "-f", ...]`**: O Docker "pinga" o serviço a cada 5 segundos para ver se ele está respondendo.
+*   **`condition: service_healthy`**: O Trino só começa a carregar quando o MinIO e o Nessie confirmam que estão 100% prontos. Isso evita falhas de boot!
+
+#### Redes e Volumes
+*   **`networks: lakehouse`**: Cria uma rede virtual privada. Nela, os containers se chamam pelo nome (ex: o Trino chama o `minio` pelo nome, não pelo IP).
+*   **`volumes: ./trino/catalog:/etc/trino/catalog`**: Faz uma ponte entre a sua pasta na VM e o interior do container. Alterou o arquivo na VM? O Trino "lê" a mudança na hora.
 
 ---
 
