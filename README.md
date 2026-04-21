@@ -17,14 +17,32 @@ A stack tecnológica é composta por:
 - `/docs`: Documentação técnica e diagramas de arquitetura.
 - `/scripts`: Utilitários para configuração do ambiente de desenvolvimento.
 
-## 🚀 Como iniciar
-1. **Pré-requisitos:** Docker e Docker Compose instalados.
-2. **Setup da Infra:**
+## 🚀 Como Iniciar
+
+### 1. Infraestrutura (VM)
+1. Garanta que o Docker esteja rodando.
+2. Acesse a pasta de infra: `cd infra/lakehouse`
+3. Suba o stack: `docker-compose up -d`
+
+### 2. Ambiente de Dados (Local)
+Para rodar a ingestão a partir do seu host, instale as dependências Python:
+```bash
+pip install pandas dlt "dlt[pyiceberg]" s3fs tzdata
+```
+
+### 3. Fluxo de Ingestão (Bronze Layer)
+1. **Gerar Dados:** Crie 1.000 registros de teste:
    ```bash
-   cd infra/lakehouse
-   docker compose up -d
+   python scripts/generate_sample_data.py
    ```
-3. **Validar:** Acesse o Trino UI em `http://localhost:8080`.
+2. **Executar Ingestão:** Envie os dados para o MinIO/Iceberg:
+   ```bash
+   python pipelines/cnh_ingestion.py
+   ```
+
+## 🛠️ Solução de Problemas
+- **Windows Timezone:** Caso receba erro de `tzdata` no PyArrow, o script já contém o fix `PYARROW_IGNORE_TIMEZONE`.
+- **Port Forwarding:** Se estiver usando VM, certifique-se de que as portas `9000` (MinIO) e `19120` (Nessie) estão redirecionadas no VirtualBox.
 
 ---
 *Desenvolvido como parte do projeto de Modern DataStack.*
