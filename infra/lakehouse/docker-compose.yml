@@ -41,6 +41,46 @@ services:
     networks:
       - lakehouse
 
+  airflow-webserver:
+    image: apache/airflow:2.8.2-python3.11
+    container_name: airflow-webserver
+    restart: always
+    user: "1000"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - _AIRFLOW_DB_UPGRADE=True
+      - _AIRFLOW_WWW_USER_CREATE=True
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas dlt[pyiceberg] s3fs tzdata sqlmesh[trino]
+    volumes:
+      - ../../:/opt/airflow/
+    ports:
+      - "8081:8080"
+    networks:
+      - lakehouse
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.2-python3.11
+    container_name: airflow-scheduler
+    restart: always
+    user: "1000"
+    depends_on:
+      - airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas dlt[pyiceberg] s3fs tzdata sqlmesh[trino]
+    volumes:
+      - ../../:/opt/airflow/
+    networks:
+      - lakehouse
+    command: scheduler
+
 networks:
   lakehouse:
     driver: bridge
