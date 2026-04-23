@@ -23,3 +23,12 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
+
+# SQLMesh / Airflow
+.cache/
+*.db
+airflow.cfg
+airflow.db
+sqlmesh.db
+estado.db

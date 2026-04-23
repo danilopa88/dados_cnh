@@ -1,0 +1,17 @@
+gateways:
+  local:
+    connection:
+      type: trino
+      user: "admin"
+      host: "localhost"
+      port: 8080
+      catalog: "iceberg"
+      http_scheme: "http"
+    state_connection:
+      type: duckdb
+      database: "estado.db"
+
+default_gateway: local
+
+model_defaults:
+  dialect: trino
