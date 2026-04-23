@@ -2,6 +2,7 @@ services:
   minio:
     image: minio/minio
     container_name: minio
+    restart: always
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
@@ -15,6 +16,7 @@ services:
   nessie:
     image: projectnessie/nessie:latest
     container_name: nessie
+    restart: always
     ports:
       - "19120:19120"
     networks:
@@ -23,6 +25,7 @@ services:
   trino:
     image: trinodb/trino:latest
     container_name: trino
+    restart: always
     ports:
       - "8080:8080"
     volumes:
@@ -33,6 +36,7 @@ services:
   minio-init:
     image: minio/mc
     container_name: minio-init
+    restart: always
     depends_on:
       - minio
     volumes:
